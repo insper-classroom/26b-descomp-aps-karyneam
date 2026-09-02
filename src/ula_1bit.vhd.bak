@@ -1,0 +1,55 @@
+library ieee;
+use ieee.std_logic_1164.all;
+
+entity ula_1bit is
+port(
+    a, b, cin : in  std_logic;
+    control   : in  std_logic_vector(2 downto 0);
+    outi, cout: out std_logic
+);
+end entity ula_1bit;
+
+architecture behv1 of ula_1bit is
+
+    component fa is
+    port(
+        a, b, cin : in  std_logic;
+        s, cout   : out std_logic
+    );
+    end component;
+
+    port(
+        a, b : in  std_logic;
+        s    : in  std_logic_vector(1 downto 0);
+        y    : out std_logic
+    );
+    end component;
+
+    signal b_mux     : std_logic;
+    signal sum_out   : std_logic;
+    signal logic_out : std_logic;
+
+begin
+
+    b_mux <= b xor control(2);
+
+    u_adder : fa
+        port map (
+            a    => a,
+            b    => b_mux,
+            cin  => cin,
+            s    => sum_out,
+            cout => cout
+        );
+
+    u_logic : logicUnit
+        port map (
+            a => a,
+            b => b,
+            s => control(1 downto 0),
+            y => logic_out
+        );
+
+    outi <= sum_out when control(2) = '0' else logic_out;
+
+end architecture behv1;

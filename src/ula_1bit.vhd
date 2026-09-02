@@ -1,54 +1,57 @@
 library ieee;
 use ieee.std_logic_1164.all;
 
--------------------------------------------------
-entity fullAdder is
+entity ula_1bit is
 port(
     a, b, cin : in  std_logic;
-    s, cout   : out std_logic
+    control   : in  std_logic_vector(2 downto 0);
+    outi, cout: out std_logic
 );
-end fullAdder;
+end entity ula_1bit;
 
--------------------------------------------------
+architecture behv1 of ula_1bit is
 
-architecture behv1 of fullAdder is
+    component fa is
+    port(
+        a, b, cin : in  std_logic;
+        s, cout   : out std_logic
+    );
+    end component;
+
+    component logicUnit is
+    port(
+        a, b : in  std_logic;
+        s    : in  std_logic_vector(1 downto 0);
+        y    : out std_logic
+    );
+    end component;
+
+    -- Sinais internos
+    signal b_mux     : std_logic;
+    signal sum_out   : std_logic;
+    signal logic_out : std_logic;
+
 begin
-process(a,b,cin)
-begin
 
-if a = '0' and b = '0' and cin = '0' then
-s <= '0';
-cout <= '0';
+    b_mux <= b xor control(2);
 
-elsif a = '1' and b = '0' and cin = '0' then
-s <= '1';
-cout <= '0';
+    u_adder : fa
+        port map (
+            a    => a,
+            b    => b_mux,
+            cin  => cin,
+            s    => sum_out,
+            cout => cout
+        );
 
-elsif a = '0' and b = '1' and cin = '0' then
-s <= '1';
-cout <= '0';
+    u_logic : logicUnit
+        port map (
+            a => a,
+            b => b,
+            s => control(1 downto 0),
+            y => logic_out
+        );
 
-elsif a = '0' and b = '0' and cin = '1' then
-s <= '1';
-cout <= '0';
+    outi <= sum_out when control(2) = '0' else logic_out;
 
-elsif a = '0' and b = '1' and cin = '1' then
-s <= '0';
-cout <= '1';
-
-elsif a = '1' and b = '0' and cin = '1' then
-s <= '0';
-cout <= '1';
-
-elsif a = '1' and b = '1' and cin = '0' then
-s <= '0';
-cout <= '1';
-
-else
-s <= '1';
-cout <= '1';
-
-end if;
-end process;
-
-end behv1;
+end architecture behv1;

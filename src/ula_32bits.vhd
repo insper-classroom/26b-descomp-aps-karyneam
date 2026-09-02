@@ -8,6 +8,7 @@ port(
     a, b      : in  std_logic_vector(31 downto 0);
     control   : in  std_logic_vector( 2 downto 0);
     outi      : out std_logic_vector(31 downto 0);
+    cout30 : out std_logic;
     cout      : out std_logic);
 end ula_32bits;
 
@@ -39,6 +40,7 @@ gen_ula : for i in 0 to 31 generate
     );
 end generate gen_ula;
 
+cout30 <= c(31);
 cout <= c(32);
 
 
