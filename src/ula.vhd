@@ -1,66 +1,90 @@
 library ieee;
 use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 entity ULA is
-  port (
-    A             : in  std_logic_vector(31 downto 0);
-    B             : in  std_logic_vector(31 downto 0);
-    control       : in  std_logic_vector(2 downto 0);
-    result        : out std_logic_vector(31 downto 0);
-    flag_neg      : out std_logic;
-    flag_zero     : out std_logic;
-    flag_overflow : out std_logic
-  );
-end entity ULA;
-
-architecture rtl of ULA is
-
-    component ula_32bits is
-    port(
-        a, b      : in  std_logic_vector(31 downto 0);
-        control   : in  std_logic_vector(2 downto 0);
-        outi      : out std_logic_vector(31 downto 0);
-        cout30    : out std_logic;
-        cout      : out std_logic
-    );
-    end component;
-
-    component flags is
-    port(
-        c_out31       : in  std_logic;
-        c_out30       : in  std_logic;
-        ula_out       : in  std_logic_vector(31 downto 0);
+    port (
+        A             : in  std_logic_vector(31 downto 0);
+        B             : in  std_logic_vector(31 downto 0);
+        control       : in  std_logic_vector(3 downto 0);
+        result        : out  std_logic_vector(31 downto 0);
         flag_neg      : out std_logic;
         flag_zero     : out std_logic;
         flag_overflow : out std_logic
     );
-    end component;
+end entity ULA;
 
-    signal internal_result : std_logic_vector(31 downto 0);
-    signal c30, c31        : std_logic;
-
+architecture behv of ULA is
 begin
 
-    u_ula_32bits : ula_32bits
-        port map (
-            a       => A,
-            b       => B,
-            control => control,
-            outi    => internal_result,
-            cout30  => c30,
-            cout    => c31
-        );
+    process(A, B, control)
+        variable resultado : std_logic_vector(31 downto 0);
+        variable overflow  : std_logic;
+    begin
+        -- Valores padrão
+        resultado := (others => '0');
+        overflow  := '0';
 
-    u_flags : flags
-        port map (
-            c_out31       => c31,
-            c_out30       => c30,
-            ula_out       => internal_result,
-            flag_neg      => flag_neg,
-            flag_zero     => flag_zero,
-            flag_overflow => flag_overflow
-        );
+        case control is
 
-    result <= internal_result;
+            -- Soma signed
+            when "0000" =>
+                resultado := std_logic_vector(signed(A) + signed(B));
 
-end architecture;
+                -- Overflow para números signed de 3 bits
+                if (A(2) = B(2)) and
+                   (resultado(2) /= A(2)) then
+                    overflow := '1';
+                end if;
+
+            -- Subtração signed
+            when "0001" =>
+                resultado := std_logic_vector(signed(A) - signed(B));
+
+                -- Overflow para números signed de 3 bits
+                if (A(2) /= B(2)) and
+                   (resultado(2) /= A(2)) then
+                    overflow := '1';
+                end if;
+
+            -- AND
+            when "0010" =>
+                resultado := A and B;
+
+            -- OR
+            when "0011" =>
+                resultado := A or B;
+
+            -- XOR
+            when "0100" =>
+                resultado := A xor B;
+
+            -- NOT A
+            when "0101" =>
+                resultado := not A;
+
+            -- Operações não utilizadas
+            when others =>
+                resultado := (others => '0');
+
+        end case;
+
+        -- Resultado da operação
+        result <= resultado;
+
+        -- Flag de negativo: bit de sinal do resultado de 3 bits
+        flag_neg <= resultado(2);
+
+        -- Flag de overflow
+        flag_overflow <= overflow;
+
+        -- Flag de zero
+        if resultado(2 downto 0) = "000" then
+            flag_zero <= '1';
+        else
+            flag_zero <= '0';
+        end if;
+
+    end process;
+
+end architecture behv;
