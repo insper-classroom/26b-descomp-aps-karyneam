@@ -6,10 +6,9 @@ VHDL_SOURCES += $(PWD)/../src/ula_logicUnit.vhd
 VHDL_SOURCES += $(PWD)/../src/ula_1bit.vhd
 VHDL_SOURCES += $(PWD)/../src/ula_flags.vhd
 VHDL_SOURCES += $(PWD)/../src/ula_32bits.vhd
-VHDL_SOURCES += $(PWD)/../src/toplevel_ula.vhd
+VHDL_SOURCES += $(PWD)/../src/ula.vhd
 
-
-TOPLEVEL = toplevel_ula
+TOPLEVEL = ula
 
 MODULE = test_ula
 
