@@ -161,7 +161,7 @@ async def test_ula_negative_flag(dut):
 
 @cocotb.test()
 async def test_ula_overflow(dut):
-    # 0x7FFFFFFF + 1 causa overflow signed de 32 bits
+    # 0x7FFFFFFF + 1  overflow signed de 32 bits
 
     dut.A.value = 0x7FFFFFFF
     dut.B.value = 1
