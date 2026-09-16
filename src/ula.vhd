@@ -6,8 +6,8 @@ entity ULA is
     port (
         A             : in  std_logic_vector(31 downto 0);
         B             : in  std_logic_vector(31 downto 0);
-        control       : in  std_logic_vector(3 downto 0);
-        result        : out  std_logic_vector(31 downto 0);
+        control       : in  std_logic_vector(2 downto 0);
+        result        : out std_logic_vector(31 downto 0);
         flag_neg      : out std_logic;
         flag_zero     : out std_logic;
         flag_overflow : out std_logic
@@ -21,65 +21,58 @@ begin
         variable resultado : std_logic_vector(31 downto 0);
         variable overflow  : std_logic;
     begin
-        -- Valores padrão
+
         resultado := (others => '0');
         overflow  := '0';
 
         case control is
 
             -- Soma signed
-            when "0000" =>
+            when "010" =>
                 resultado := std_logic_vector(signed(A) + signed(B));
 
-                -- Overflow para números signed de 3 bits
-                if (A(2) = B(2)) and
-                   (resultado(2) /= A(2)) then
+                if (A(31) = B(31)) and
+                   (resultado(31) /= A(31)) then
                     overflow := '1';
                 end if;
 
             -- Subtração signed
-            when "0001" =>
+            when "011" =>
                 resultado := std_logic_vector(signed(A) - signed(B));
 
-                -- Overflow para números signed de 3 bits
-                if (A(2) /= B(2)) and
-                   (resultado(2) /= A(2)) then
+                if (A(31) /= B(31)) and
+                   (resultado(31) /= A(31)) then
                     overflow := '1';
                 end if;
 
             -- AND
-            when "0010" =>
+            when "100" =>
                 resultado := A and B;
 
             -- OR
-            when "0011" =>
+            when "101" =>
                 resultado := A or B;
 
             -- XOR
-            when "0100" =>
+            when "111" =>
                 resultado := A xor B;
 
             -- NOT A
-            when "0101" =>
+            when "110" =>
                 resultado := not A;
 
-            -- Operações não utilizadas
             when others =>
                 resultado := (others => '0');
 
         end case;
 
-        -- Resultado da operação
         result <= resultado;
 
-        -- Flag de negativo: bit de sinal do resultado de 3 bits
-        flag_neg <= resultado(2);
+        flag_neg <= resultado(31);
 
-        -- Flag de overflow
         flag_overflow <= overflow;
 
-        -- Flag de zero
-        if resultado(2 downto 0) = "000" then
+        if resultado = x"00000000" then
             flag_zero <= '1';
         else
             flag_zero <= '0';

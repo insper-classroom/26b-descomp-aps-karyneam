@@ -1,0 +1,123 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+entity arith_machine is
+port(	
+    instr        : in  std_logic_vector(31 downto 0);
+
+    rd_src       : in  std_logic;
+    wr_enable    : in  std_logic; 
+    ula_src2     : in  std_logic_vector(1 downto 0);
+    ula_op       : in  std_logic_vector(2 downto 0); 
+
+    clk          : in  std_logic;
+    reset        : in  std_logic;
+    
+    overflow     : out std_logic;
+    zero         : out std_logic;
+    negative     : out std_logic;
+    ula_out      : out std_logic_vector(31 downto 0)
+);
+end arith_machine;
+
+architecture behv1 of arith_machine is
+
+    component sign_extender is
+    port(	
+        imm16         : in  std_logic_vector(15 downto 0);
+        sign_ext_imm  : out std_logic_vector(31 downto 0)
+    );
+    end component;
+
+    component zero_extender is
+    port(	
+        imm16         : in  std_logic_vector(15 downto 0);
+        zero_ext_imm  : out std_logic_vector(31 downto 0)
+    );
+    end component;
+
+    component ula_mips is
+    port(	
+        A        : in  std_logic_vector(31 downto 0);
+        B        : in  std_logic_vector(31 downto 0);
+        ctrl     : in  std_logic_vector(2 downto 0);
+
+        overflow : out std_logic;
+        zero     : out std_logic;
+        negative : out std_logic;
+        O        : out std_logic_vector(31 downto 0)
+    );
+    end component;
+
+    component reg_file is
+    port(	
+        clk      : in  std_logic;
+        rst      : in  std_logic;
+        A_addr   : in  std_logic_vector(4 downto 0);
+        B_addr   : in  std_logic_vector(4 downto 0);
+        W_addr   : in  std_logic_vector(4 downto 0);
+        W_data   : in  std_logic_vector(31 downto 0);
+        W_en     : in  std_logic;
+        A_data   : out std_logic_vector(31 downto 0);
+        B_data   : out std_logic_vector(31 downto 0)
+    );
+    end component;
+
+    signal w_reg_addr    : std_logic_vector(4 downto 0);
+    signal reg_a_data    : std_logic_vector(31 downto 0);
+    signal reg_b_data    : std_logic_vector(31 downto 0);
+    signal s_ext_imm     : std_logic_vector(31 downto 0);
+    signal z_ext_imm     : std_logic_vector(31 downto 0);
+    signal ula_b_in      : std_logic_vector(31 downto 0);
+    signal ula_res       : std_logic_vector(31 downto 0);
+
+begin
+
+    w_reg_addr <= instr(15 downto 11) when rd_src = '0' else instr(20 downto 16);
+
+    U_REG_FILE: reg_file
+    port map(
+        clk    => clk,
+        rst    => reset,
+        A_addr => instr(25 downto 21),
+        B_addr => instr(20 downto 16),
+        W_addr => w_reg_addr,
+        W_data => ula_res,
+        W_en   => wr_enable,
+        A_data => reg_a_data,
+        B_data => reg_b_data
+    );
+
+    U_SIGN_EXT: sign_extender
+    port map(
+        imm16        => instr(15 downto 0),
+        sign_ext_imm => s_ext_imm
+    );
+
+    U_ZERO_EXT: zero_extender
+    port map(
+        imm16        => instr(15 downto 0),
+        zero_ext_imm => z_ext_imm
+    );
+
+    with ula_src2 select
+        ula_b_in <= reg_b_data when "00",
+                    s_ext_imm  when "01",
+                    z_ext_imm  when "10",
+                    (others => '0') when others;
+
+    U_ULA: ula_mips
+    port map(
+        A        => reg_a_data,
+        B        => ula_b_in,
+        ctrl     => ula_op,
+        overflow => overflow,
+        zero     => zero,
+        negative => negative,
+        O        => ula_res
+    );
+
+    ula_out <= ula_res;
+
+end behv1;
