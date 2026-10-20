@@ -4,7 +4,7 @@ JedecChain;
 	DefaultMfr(6E);
 
 	P ActionCode(Cfg)
-		Device PartName(5CEBA4F23) Path("C:/Users/Mariana Squillante/BACKUP/Insper Eng/2026.2/design/26b-descomp-aps-karyneam/quartus/") File("top_level.sof") MfrSpec(OpMask(1));
+		Device PartName(5CEBA4F23) Path("C:/Users/karyn/Documents/Descomp/26b-descomp-aps-karyneam/quartus/") File("top_level.sof") MfrSpec(OpMask(1));
 
 ChainEnd;
 
