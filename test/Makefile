@@ -11,7 +11,13 @@ endif
 ifeq ($(TOPLEVEL),mips_word_toplevel)
     VHDL_SOURCES = $(PWD)/../src/reg_file.vhd
     VHDL_SOURCES += $(PWD)/../src/mips_ram_bytes.vhd
+    # Nos testes individuais, troca SOMENTE a ROM da simulacao.
+    # A ROM de producao/FPGA continua intocada.
+ifeq ($(MIPS_INDIVIDUAL),1)
+    VHDL_SOURCES += $(PWD)/generated/mips_rom.vhd
+else
     VHDL_SOURCES += $(PWD)/../src/mips_rom.vhd
+endif
     VHDL_SOURCES += $(PWD)/../src/mips_word_toplevel.vhd
 else ifeq ($(TOPLEVEL),mips_rom)
     VHDL_SOURCES = $(PWD)/../src/mips_rom.vhd
