@@ -25,9 +25,17 @@ jobs:
             toplevel: ula
             module: test_ula
 
+          - name: CPU smoke test
+            toplevel: mips_word_toplevel
+            module: test_mips_word_toplevel
+
           - name: ROM
             toplevel: mips_rom
             module: test_mips_rom
+
+          - name: RAM bytes
+            toplevel: mips_ram_bytes
+            module: test_mips_ram_bytes
 
           - name: RAM
             toplevel: mips_ram
