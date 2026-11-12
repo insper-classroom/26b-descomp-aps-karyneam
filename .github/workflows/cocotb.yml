@@ -29,6 +29,10 @@ jobs:
             toplevel: mips_word_toplevel
             module: test_mips_word_toplevel
 
+          - name: CPU instrucoes C + C+ + B + B+ (48 testes)
+            toplevel: mips_word_toplevel
+            module: test_mips_instructions
+
           - name: ROM
             toplevel: mips_rom
             module: test_mips_rom
