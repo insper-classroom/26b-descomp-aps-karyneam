@@ -1,5 +1,5 @@
-# APS A/A+ - Jogo da velha para LT24 (dois jogadores, 3 botoes)
-# MMIO: 0x100=teclas (KEY1 bit0, KEY2 bit1, KEY3 bit2; 1=pressionado)
+# APS A/A+ - Jogo da velha para LT24 (dois jogadores, 2 botoes + reset)
+# MMIO: 0x100=teclas (KEY1 bit0=proxima, KEY2 bit1=confirmar; 1=pressionado)
 #       0x104=tabuleiro compactado, 2 bits/casa (0 vazio, 1 X, 2 O)
 #       0x108=cursor 0..8, 0x10C=estado (1=X,2=O,3=X venceu,4=O venceu,5=empate)
 # RAM: 0x40..0x60 = nove palavras do tabuleiro.
@@ -26,19 +26,12 @@ limpar:
 
 aguardar:
     lw $t0, 0($s6)
-    andi $t1, $t0, 1           # KEY1: anterior
-    bne $t1, $zero, anterior
-    andi $t1, $t0, 2           # KEY2: proxima
+    andi $t1, $t0, 1           # KEY1: proxima posicao
     bne $t1, $zero, proxima
-    andi $t1, $t0, 4           # KEY3: confirmar
+    andi $t1, $t0, 2           # KEY2: confirmar X/O
     bne $t1, $zero, confirmar
     j aguardar
 
-anterior:
-    addiu $s2, $s2, -1
-    bgez $s2, cursor_atualizado
-    addiu $s2, $zero, 8
-    j cursor_atualizado
 proxima:
     addiu $s2, $s2, 1
     addiu $t0, $zero, 9

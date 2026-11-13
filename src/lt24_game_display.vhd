@@ -87,6 +87,63 @@ architecture rtl of lt24_game_display is
         if v < 0 then return -v; else return v; end if;
     end function;
 
+    -- Fonte simples 5x7 (letras maiusculas e digitos usados na legenda).
+    -- O LT24 desenha as palavras em pixels; nao depende de fontes externas.
+    subtype glyph_row_t is std_logic_vector(4 downto 0);
+
+    function glyph_row(ch : character; r : integer) return glyph_row_t is
+        variable glyph : std_logic_vector(34 downto 0);
+    begin
+        case ch is
+            when 'A' => glyph := "01110" & "10001" & "10001" & "11111" & "10001" & "10001" & "10001";
+            when 'C' => glyph := "01111" & "10000" & "10000" & "10000" & "10000" & "10000" & "01111";
+            when 'E' => glyph := "11111" & "10000" & "10000" & "11110" & "10000" & "10000" & "11111";
+            when 'I' => glyph := "11111" & "00100" & "00100" & "00100" & "00100" & "00100" & "11111";
+            when 'K' => glyph := "10001" & "10010" & "10100" & "11000" & "10100" & "10010" & "10001";
+            when 'N' => glyph := "10001" & "11001" & "10101" & "10011" & "10001" & "10001" & "10001";
+            when 'O' => glyph := "01110" & "10001" & "10001" & "10001" & "10001" & "10001" & "01110";
+            when 'P' => glyph := "11110" & "10001" & "10001" & "11110" & "10000" & "10000" & "10000";
+            when 'R' => glyph := "11110" & "10001" & "10001" & "11110" & "10100" & "10010" & "10001";
+            when 'S' => glyph := "01111" & "10000" & "10000" & "01110" & "00001" & "00001" & "11110";
+            when 'X' => glyph := "10001" & "10001" & "01010" & "00100" & "01010" & "10001" & "10001";
+            when 'Y' => glyph := "10001" & "10001" & "01010" & "00100" & "00100" & "00100" & "00100";
+            when '0' => glyph := "01110" & "10001" & "10011" & "10101" & "11001" & "10001" & "01110";
+            when '1' => glyph := "00100" & "01100" & "00100" & "00100" & "00100" & "00100" & "01110";
+            when '2' => glyph := "01110" & "10001" & "00001" & "00010" & "00100" & "01000" & "11111";
+            when '=' => glyph := "00000" & "11111" & "00000" & "11111" & "00000" & "00000" & "00000";
+            when others => glyph := (others => '0'); -- inclui espaco
+        end case;
+        -- Fatias de largura fixa: o Quartus nao aceita os limites
+        -- dinamicos na selecao da linha do glifo.
+        case r is
+            when 0 => return glyph(34 downto 30);
+            when 1 => return glyph(29 downto 25);
+            when 2 => return glyph(24 downto 20);
+            when 3 => return glyph(19 downto 15);
+            when 4 => return glyph(14 downto 10);
+            when 5 => return glyph(9 downto 5);
+            when 6 => return glyph(4 downto 0);
+            when others => return "00000";
+        end case;
+    end function;
+
+    function text_pixel(line : string; x, y, origin_x, origin_y : integer)
+        return boolean is
+        variable lx, ly, letter_pos, col : integer;
+        variable row_bits : std_logic_vector(4 downto 0);
+    begin
+        if x < origin_x or y < origin_y then return false; end if;
+        -- Cada pixel da fonte e mostrado com escala 2x2.
+        lx := (x-origin_x)/2;
+        ly := (y-origin_y)/2;
+        if ly >= 7 or lx >= line'length*6 then return false; end if;
+        letter_pos := lx/6;
+        col := lx mod 6;
+        if col = 5 then return false; end if; -- espaco entre caracteres
+        row_bits := glyph_row(line(line'low+letter_pos),ly);
+        return row_bits(4-col) = '1';
+    end function;
+
     function pixel_color(x, y : integer;
                          b : std_logic_vector(17 downto 0);
                          c : std_logic_vector(3 downto 0);
@@ -96,11 +153,21 @@ architecture rtl of lt24_game_display is
         variable chosen : integer;
         variable maxabs : integer;
     begin
-        -- Plano de fundo azul escuro
-        if y < 32 then
-            if st = "011" then return x"07E0"; end if; -- X venceu: verde
-            if st = "100" then return x"F81F"; end if; -- O venceu: rosa
-            if st = "101" then return x"FFE0"; end if; -- empate: amarelo
+        -- Legenda fixa no topo, em branco sobre fundo escuro.
+        -- 240 pixels permitem tres linhas legiveis em fonte 5x7 ampliada 2x.
+        if y < 56 then
+            if text_pixel("KEY0 = REINICIAR", x,y,24,3) or
+               text_pixel("KEY1 = PROX POSICAO",x,y,6,21) or
+               text_pixel("KEY2 = OK",x,y,66,39) then
+                return x"FFFF"; -- branco
+            end if;
+            return x"1082"; -- fundo azul/cinza escuro
+        end if;
+        -- Faixa fina de status preserva a indicacao de jogador/vitoria.
+        if y < 60 then
+            if st = "011" then return x"07E0"; end if; -- X venceu
+            if st = "100" then return x"F81F"; end if; -- O venceu
+            if st = "101" then return x"FFE0"; end if; -- empate
             if st = "010" then return x"F81F"; end if; -- vez do O
             return x"03FF"; -- vez do X
         end if;
@@ -117,8 +184,20 @@ architecture rtl of lt24_game_display is
         ax := abs_i(dx); ay := abs_i(dy);
         if ax >= 33 or ay >= 33 then return x"FFFF"; end if;
         chosen := to_integer(unsigned(c));
-        if index = chosen and (ax >= 30 or ay >= 30) then return x"FFE0"; end if;
-        symbol := b(2*index+1 downto 2*index);
+        if index = chosen and (ax >= 30 or ay >= 30) then return x"07E0"; end if; -- cursor verde
+        -- Seleciona a casa com fatias constantes para facilitar a sintese.
+        case index is
+            when 0 => symbol := b(1 downto 0);
+            when 1 => symbol := b(3 downto 2);
+            when 2 => symbol := b(5 downto 4);
+            when 3 => symbol := b(7 downto 6);
+            when 4 => symbol := b(9 downto 8);
+            when 5 => symbol := b(11 downto 10);
+            when 6 => symbol := b(13 downto 12);
+            when 7 => symbol := b(15 downto 14);
+            when 8 => symbol := b(17 downto 16);
+            when others => symbol := "00";
+        end case;
         if symbol = "01" then
             if (ax <= 23 and ay <= 23) and
                (abs_i(dx-dy) <= 3 or abs_i(dx+dy) <= 3) then

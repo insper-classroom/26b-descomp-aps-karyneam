@@ -70,12 +70,12 @@ class CPU:
     def goto(self,target):
         current=self.io[0x108]
         while current!=target:
-            self.press(2) # proxima
+            self.press(1) # KEY1: proxima
             current=(current+1)%9
             assert self.io[0x108]==current,(current,self.io)
     def play(self,target):
         self.goto(target)
-        self.press(4) # confirmar
+        self.press(2) # KEY2: confirmar
     def board(self):
         return [self.memory.get(0x40+4*i,0) for i in range(9)]
 
@@ -95,6 +95,8 @@ if __name__=='__main__':
     scenario([0,1,2,4,3,5,7,6,8],5,[1,2,1,1,2,2,2,1,1])
     cpu=CPU();cpu.run(250);cpu.play(0);state=cpu.io[0x104]; cpu.play(0)
     assert cpu.io[0x104]==state and cpu.io[0x10c]==2
-    cpu.goto(8);cpu.press(2);assert cpu.io[0x108]==0
-    cpu.press(1);assert cpu.io[0x108]==8
-    print('PASS casa ocupada e circulacao do cursor')
+    cpu.goto(8);cpu.press(1);assert cpu.io[0x108]==0
+    before = (cpu.io[0x104],cpu.io[0x108],cpu.io[0x10c])
+    cpu.press(4)  # KEY3 nao deve alterar nada
+    assert (cpu.io[0x104],cpu.io[0x108],cpu.io[0x10c]) == before
+    print('PASS casa ocupada, cursor circular e KEY3 desabilitado')

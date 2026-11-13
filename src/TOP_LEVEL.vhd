@@ -45,7 +45,7 @@ architecture rtl of TOP_LEVEL is
     signal lcd_ready : std_logic;
     signal lcd_data : std_logic_vector(15 downto 0);
     signal lcd_wr_n, lcd_rd_n, lcd_cs_n, lcd_rs, lcd_reset_n, lcd_on : std_logic;
-    signal key_game_meta, key_game_sync : std_logic_vector(2 downto 0) := (others => '1');
+    signal key_game_meta, key_game_sync : std_logic_vector(1 downto 0) := (others => '1');
     signal game_selected : std_logic;
 
     function hex7(n : std_logic_vector(3 downto 0)) return std_logic_vector is
@@ -94,7 +94,7 @@ begin
             end if;
 
             -- Entradas da interface: botoes nativos ja debounced na DE0-CV.
-            key_game_meta <= KEY(3 downto 1);
+            key_game_meta <= KEY(2 downto 1); -- KEY1: proxima casa; KEY2: confirma; KEY3 sem funcao
             key_game_sync <= key_game_meta;
             -- Dois flip-flops de sincronizacao, seguidos por debounce.
             key_meta <= KEY(1);
@@ -127,8 +127,8 @@ begin
             debug_alu_result => alu, debug_signature => signature
         );
 
-    -- MMIO 0x100 botoes, 0x104 board, 0x108 cursor, 0x10C status.
-    io_rdata <= (31 downto 3 => '0') & (not key_game_sync)
+    -- MMIO 0x100: KEY1 bit0 (proxima) e KEY2 bit1 (confirma).
+    io_rdata <= (31 downto 2 => '0') & (not key_game_sync)
                  when io_addr = x"00000100" else (others => '0');
     process(CLOCK_50, reset)
     begin
