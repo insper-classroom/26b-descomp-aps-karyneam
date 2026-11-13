@@ -2,11 +2,12 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
--- Wrapper FPGA Cyclone V: CLOCK_50, KEY[0:1], SW[3:0], LEDR, HEX[0:5].
--- SW(3 downto 1) escolhe o programa (0=autoteste, 1..7=demos).
--- SW(0) = 1: execucao automatica a ~100 instrucoes/s.
+-- Wrapper DE0-CV: GPIO_1=LT24, GPIO_0=joystick de 4 botoes.
+-- SW(4 downto 1) escolhe o programa (0=autoteste, 1..7=demos, 8=jogo).
+-- SW(0) = 1: execucao automatica (~500 instrucoes/s).
 -- SW(0) = 0: uma instrucao por pressionamento de KEY(1).
--- KEY(0): reset (ativo em nivel baixo).
+-- KEY0: reset; KEY2: confirmar no jogo. KEY1: passo manual se SW0=0.
+-- O joystick seleciona a casa nas quatro direcoes.
 entity TOP_LEVEL is
     port (
         CLOCK_50 : in  std_logic;
@@ -19,12 +20,13 @@ entity TOP_LEVEL is
         HEX3     : out std_logic_vector(6 downto 0);
         HEX4     : out std_logic_vector(6 downto 0);
         HEX5     : out std_logic_vector(6 downto 0);
-        GPIO_0   : inout std_logic_vector(35 downto 0)
+        GPIO_1   : inout std_logic_vector(35 downto 0);
+        GPIO_0   : in    std_logic_vector(35 downto 0)
     );
 end entity;
 
 architecture rtl of TOP_LEVEL is
-    constant AUTO_DIV   : natural := 100_000;   -- 50 MHz / 500000 = 100 Hz
+    constant AUTO_DIV   : natural := 100_000;   -- 50MHz / 100000 = 500Hz
     constant DEBOUNCE   : natural := 1_000_000; -- ~20ms a 50 MHz
     signal reset        : std_logic;
     signal pc, instr, alu, signature : std_logic_vector(31 downto 0);
@@ -45,7 +47,13 @@ architecture rtl of TOP_LEVEL is
     signal lcd_ready : std_logic;
     signal lcd_data : std_logic_vector(15 downto 0);
     signal lcd_wr_n, lcd_rd_n, lcd_cs_n, lcd_rs, lcd_reset_n, lcd_on : std_logic;
-    signal key_game_meta, key_game_sync : std_logic_vector(1 downto 0) := (others => '1');
+    -- GPIO_0[4]=cima, [5]=baixo, [6]=esquerda, [7]=direita.
+    -- Cada direcao fecha um contato seco para GND. Pull-ups no .qsf.
+    constant JOY_DEBOUNCE : natural := 1_000_000; -- ~20ms a 50MHz
+    type joy_counters_t is array (0 to 3) of natural range 0 to JOY_DEBOUNCE;
+    signal joy_count : joy_counters_t := (others => 0);
+    signal joy_meta, joy_sync, joy_stable : std_logic_vector(3 downto 0) := (others => '1');
+    signal confirm_meta, confirm_sync : std_logic := '1';
     signal game_selected : std_logic;
 
     function hex7(n : std_logic_vector(3 downto 0)) return std_logic_vector is
@@ -85,8 +93,12 @@ begin
             key_previous <= '1';
             stable_count <= 0;
             manual_pulse <= '0';
-            key_game_meta <= (others => '1');
-            key_game_sync <= (others => '1');
+            joy_meta <= (others => '1');
+            joy_sync <= (others => '1');
+            joy_stable <= (others => '1');
+            joy_count <= (others => 0);
+            confirm_meta <= '1';
+            confirm_sync <= '1';
         elsif rising_edge(CLOCK_50) then
             -- Divisor de clock em forma de clock enable.
             if auto_count = AUTO_DIV-1 then auto_count <= 0;
@@ -94,8 +106,22 @@ begin
             end if;
 
             -- Entradas da interface: botoes nativos ja debounced na DE0-CV.
-            key_game_meta <= KEY(2 downto 1); -- KEY1: proxima casa; KEY2: confirma; KEY3 sem funcao
-            key_game_sync <= key_game_meta;
+            joy_meta <= GPIO_0(7 downto 4);
+            joy_sync <= joy_meta;
+            -- Sincronizacao e debounce individuais para as quatro direcoes.
+            for i in 0 to 3 loop
+                if joy_sync(i) = joy_stable(i) then
+                    joy_count(i) <= 0;
+                elsif joy_count(i) = JOY_DEBOUNCE then
+                    joy_stable(i) <= joy_sync(i);
+                    joy_count(i) <= 0;
+                else
+                    joy_count(i) <= joy_count(i) + 1;
+                end if;
+            end loop;
+            -- KEY2 nativo da placa ja possui debounce fisico.
+            confirm_meta <= KEY(2);
+            confirm_sync <= confirm_meta;
             -- Dois flip-flops de sincronizacao, seguidos por debounce.
             key_meta <= KEY(1);
             key_sync <= key_meta;
@@ -127,8 +153,9 @@ begin
             debug_alu_result => alu, debug_signature => signature
         );
 
-    -- MMIO 0x100: KEY1 bit0 (proxima) e KEY2 bit1 (confirma).
-    io_rdata <= (31 downto 2 => '0') & (not key_game_sync)
+    -- MMIO 0x100: bit0=cima, bit1=baixo, bit2=esquerda,
+    -- bit3=direita, bit4=KEY2 (confirma). 1 = pressionado.
+    io_rdata <= (31 downto 5 => '0') & (not confirm_sync) & (not joy_stable)
                  when io_addr = x"00000100" else (others => '0');
     process(CLOCK_50, reset)
     begin
@@ -156,8 +183,8 @@ begin
             lcd_cs_n => lcd_cs_n, lcd_rs => lcd_rs,
             lcd_reset_n => lcd_reset_n, lcd_on => lcd_on, ready => lcd_ready
         );
-    -- GPIO_0: LT24 encaixado no conector GPIO_0 da DE0-CV.
-    -- Pinagem fisica 2x20: pino 1=GPIO_0[0], 2=[1], ...
+    -- GPIO_1: LT24 encaixado no conector GPIO_1 da DE0-CV.
+    -- Pinagem fisica 2x20: pino 1=GPIO_1[0], 2=[1], ...
     process(all)
         variable p : std_logic_vector(35 downto 0);
     begin
@@ -178,7 +205,7 @@ begin
         p(33) := lcd_reset_n;
         p(34) := '1'; -- ADC_CS_N: touch desabilitado
         p(35) := lcd_on;
-        GPIO_0 <= p;
+        GPIO_1 <= p;
     end process;
 
     -- Banco 0: autoteste acumulativo (1=PASS, 2=FAIL).

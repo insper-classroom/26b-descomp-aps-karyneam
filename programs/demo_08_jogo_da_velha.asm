@@ -1,5 +1,5 @@
-# APS A/A+ - Jogo da velha para LT24 (dois jogadores, 2 botoes + reset)
-# MMIO: 0x100=teclas (KEY1 bit0=proxima, KEY2 bit1=confirmar; 1=pressionado)
+# APS A/A+ - Jogo da velha LT24 + joystick de quatro botoes e KEY2
+# MMIO: 0x100=entradas (bit0=cima, 1=baixo, 2=esquerda, 3=direita, 4=KEY2 confirma; 1=pressionado)
 #       0x104=tabuleiro compactado, 2 bits/casa (0 vazio, 1 X, 2 O)
 #       0x108=cursor 0..8, 0x10C=estado (1=X,2=O,3=X venceu,4=O venceu,5=empate)
 # RAM: 0x40..0x60 = nove palavras do tabuleiro.
@@ -26,17 +26,48 @@ limpar:
 
 aguardar:
     lw $t0, 0($s6)
-    andi $t1, $t0, 1           # KEY1: proxima posicao
-    bne $t1, $zero, proxima
-    andi $t1, $t0, 2           # KEY2: confirmar X/O
+    andi $t1, $t0, 1           # joystick: cima
+    bne $t1, $zero, mover_cima
+    andi $t1, $t0, 2           # joystick: baixo
+    bne $t1, $zero, mover_baixo
+    andi $t1, $t0, 4           # joystick: esquerda
+    bne $t1, $zero, mover_esquerda
+    andi $t1, $t0, 8           # joystick: direita
+    bne $t1, $zero, mover_direita
+    andi $t1, $t0, 16          # KEY2: confirmar X/O
     bne $t1, $zero, confirmar
     j aguardar
 
-proxima:
+mover_cima:
+    slti $t1, $s2, 3           # primeira linha? (0,1,2)
+    bne $t1, $zero, aguardar_soltar
+    addiu $s2, $s2, -3
+    j cursor_atualizado
+
+mover_baixo:
+    slti $t1, $s2, 6           # ultima linha? (6,7,8)
+    beq $t1, $zero, aguardar_soltar
+    addiu $s2, $s2, 3
+    j cursor_atualizado
+
+mover_esquerda:
+    beq $s2, $zero, aguardar_soltar # borda esquerda (0,3,6)
+    addiu $t1, $zero, 3
+    beq $s2, $t1, aguardar_soltar
+    addiu $t1, $zero, 6
+    beq $s2, $t1, aguardar_soltar
+    addiu $s2, $s2, -1
+    j cursor_atualizado
+
+mover_direita:
+    addiu $t1, $zero, 2        # borda direita (2,5,8)
+    beq $s2, $t1, aguardar_soltar
+    addiu $t1, $zero, 5
+    beq $s2, $t1, aguardar_soltar
+    addiu $t1, $zero, 8
+    beq $s2, $t1, aguardar_soltar
     addiu $s2, $s2, 1
-    addiu $t0, $zero, 9
-    bne $s2, $t0, cursor_atualizado
-    addiu $s2, $zero, 0
+
 cursor_atualizado:
     sw $s2, 8($s6)
     j aguardar_soltar

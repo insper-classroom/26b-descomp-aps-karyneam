@@ -99,6 +99,10 @@ architecture rtl of lt24_game_display is
             when 'C' => glyph := "01111" & "10000" & "10000" & "10000" & "10000" & "10000" & "01111";
             when 'E' => glyph := "11111" & "10000" & "10000" & "11110" & "10000" & "10000" & "11111";
             when 'I' => glyph := "11111" & "00100" & "00100" & "00100" & "00100" & "00100" & "11111";
+            when 'J' => glyph := "00111" & "00010" & "00010" & "00010" & "10010" & "10010" & "01100";
+            when 'M' => glyph := "10001" & "11011" & "10101" & "10101" & "10001" & "10001" & "10001";
+            when 'T' => glyph := "11111" & "00100" & "00100" & "00100" & "00100" & "00100" & "00100";
+            when 'V' => glyph := "10001" & "10001" & "10001" & "10001" & "10001" & "01010" & "00100";
             when 'K' => glyph := "10001" & "10010" & "10100" & "11000" & "10100" & "10010" & "10001";
             when 'N' => glyph := "10001" & "11001" & "10101" & "10011" & "10001" & "10001" & "10001";
             when 'O' => glyph := "01110" & "10001" & "10001" & "10001" & "10001" & "10001" & "01110";
@@ -157,7 +161,7 @@ architecture rtl of lt24_game_display is
         -- 240 pixels permitem tres linhas legiveis em fonte 5x7 ampliada 2x.
         if y < 56 then
             if text_pixel("KEY0 = REINICIAR", x,y,24,3) or
-               text_pixel("KEY1 = PROX POSICAO",x,y,6,21) or
+               text_pixel("JOYSTICK = MOVER",x,y,18,21) or
                text_pixel("KEY2 = OK",x,y,66,39) then
                 return x"FFFF"; -- branco
             end if;

@@ -520,4 +520,9 @@ set_global_assignment -name VHDL_FILE ../src/TOP_LEVEL.vhd
 # Conceitos A/A+: controlador LT24 em VHDL, MMIO no proprio MIPS
 set_global_assignment -name VHDL_FILE ../src/lt24_game_display.vhd
 
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO_0[4]
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO_0[5]
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO_0[6]
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO_0[7]
+
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
