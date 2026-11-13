@@ -16,6 +16,10 @@ O pior caminho crítico começa no registrador do contador de programa (`pc[8]`)
 Esse caminho limita a frequência máxima de operação porque o processador utiliza uma arquitetura *single-cycle*, na qual todas as operações de uma instrução precisam ser concluídas em um único ciclo de clock. Assim, o atraso acumulado dos componentes determina o período mínimo necessário para o clock e, consequentemente, a frequência máxima de funcionamento (Fmax).
 
 
+Quantidade e percentual de LUTs utilizadas:
+<img width="250" height="12" alt="image" src="https://github.com/user-attachments/assets/a36d854a-c5eb-4a3b-8df7-3a147d531e8e" />
+
+
 Quantidade e percentual de memória interna utilizada:
 <img width="251" height="10" alt="image" src="https://github.com/user-attachments/assets/21cd590e-fc42-4919-9fa1-ccc443734c1d" />
 
