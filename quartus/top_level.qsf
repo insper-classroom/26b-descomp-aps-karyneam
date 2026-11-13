@@ -517,4 +517,7 @@ set_global_assignment -name VHDL_FILE ../src/mips_rom.vhd
 set_global_assignment -name VHDL_FILE ../src/mips_word_toplevel.vhd
 set_global_assignment -name VHDL_FILE ../src/TOP_LEVEL.vhd
 
+# Conceitos A/A+: controlador LT24 em VHDL, MMIO no proprio MIPS
+set_global_assignment -name VHDL_FILE ../src/lt24_game_display.vhd
+
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

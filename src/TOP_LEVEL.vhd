@@ -2,7 +2,8 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
--- Wrapper FPGA Cyclone V: CLOCK_50, KEY[0:1], SW[0], LEDR, HEX[0:5].
+-- Wrapper FPGA Cyclone V: CLOCK_50, KEY[0:1], SW[3:0], LEDR, HEX[0:5].
+-- SW(3 downto 1) escolhe o programa (0=autoteste, 1..7=demos).
 -- SW(0) = 1: execucao automatica a ~100 instrucoes/s.
 -- SW(0) = 0: uma instrucao por pressionamento de KEY(1).
 -- KEY(0): reset (ativo em nivel baixo).
@@ -17,12 +18,13 @@ entity TOP_LEVEL is
         HEX2     : out std_logic_vector(6 downto 0);
         HEX3     : out std_logic_vector(6 downto 0);
         HEX4     : out std_logic_vector(6 downto 0);
-        HEX5     : out std_logic_vector(6 downto 0)
+        HEX5     : out std_logic_vector(6 downto 0);
+        GPIO_0   : inout std_logic_vector(35 downto 0)
     );
 end entity;
 
 architecture rtl of TOP_LEVEL is
-    constant AUTO_DIV   : natural := 500_000;   -- 50 MHz / 500000 = 100 Hz
+    constant AUTO_DIV   : natural := 100_000;   -- 50 MHz / 500000 = 100 Hz
     constant DEBOUNCE   : natural := 1_000_000; -- ~20ms a 50 MHz
     signal reset        : std_logic;
     signal pc, instr, alu, signature : std_logic_vector(31 downto 0);
@@ -34,7 +36,17 @@ architecture rtl of TOP_LEVEL is
     signal key_previous : std_logic := '1';
     signal manual_pulse : std_logic := '0';
     signal run_enable   : std_logic;
-    signal word_pc      : std_logic_vector(23 downto 0);
+    signal show_value   : std_logic_vector(23 downto 0);
+    signal io_addr, io_wdata, io_rdata : std_logic_vector(31 downto 0);
+    signal io_we : std_logic;
+    signal lcd_board : std_logic_vector(17 downto 0) := (others => '0');
+    signal lcd_cursor : std_logic_vector(3 downto 0) := (others => '0');
+    signal lcd_state : std_logic_vector(2 downto 0) := (others => '0');
+    signal lcd_ready : std_logic;
+    signal lcd_data : std_logic_vector(15 downto 0);
+    signal lcd_wr_n, lcd_rd_n, lcd_cs_n, lcd_rs, lcd_reset_n, lcd_on : std_logic;
+    signal key_game_meta, key_game_sync : std_logic_vector(2 downto 0) := (others => '1');
+    signal game_selected : std_logic;
 
     function hex7(n : std_logic_vector(3 downto 0)) return std_logic_vector is
     begin
@@ -59,6 +71,7 @@ architecture rtl of TOP_LEVEL is
     end function;
 begin
     reset <= not KEY(0);
+    game_selected <= '1' when SW(4 downto 1) = "1000" else '0';
     run_enable <= '1' when (SW(0) = '1' and auto_count = AUTO_DIV-1) else
                   manual_pulse when SW(0) = '0' else '0';
 
@@ -72,12 +85,17 @@ begin
             key_previous <= '1';
             stable_count <= 0;
             manual_pulse <= '0';
+            key_game_meta <= (others => '1');
+            key_game_sync <= (others => '1');
         elsif rising_edge(CLOCK_50) then
             -- Divisor de clock em forma de clock enable.
             if auto_count = AUTO_DIV-1 then auto_count <= 0;
             else auto_count <= auto_count + 1;
             end if;
 
+            -- Entradas da interface: botoes nativos ja debounced na DE0-CV.
+            key_game_meta <= KEY(3 downto 1);
+            key_game_sync <= key_game_meta;
             -- Dois flip-flops de sincronizacao, seguidos por debounce.
             key_meta <= KEY(1);
             key_sync <= key_meta;
@@ -100,22 +118,93 @@ begin
     cpu : entity work.mips_word_toplevel
         port map (
             clk => CLOCK_50, reset => reset, enable => run_enable,
+            rom_bank => SW(4 downto 1),
+            io_read_data => io_rdata,
+            io_addr => io_addr,
+            io_write_data => io_wdata,
+            io_write_strobe => io_we,
             debug_pc => pc, debug_instruction => instr,
             debug_alu_result => alu, debug_signature => signature
         );
 
-    -- Auto-teste: assinatura 1 => passou, 2 => falhou, 0 => executando.
-    LEDR(9) <= '1' when signature = x"00000001" else '0';
-    LEDR(8) <= '1' when signature = x"00000002" else '0';
-    LEDR(7) <= '1' when signature = x"00000000" else '0';
+    -- MMIO 0x100 botoes, 0x104 board, 0x108 cursor, 0x10C status.
+    io_rdata <= (31 downto 3 => '0') & (not key_game_sync)
+                 when io_addr = x"00000100" else (others => '0');
+    process(CLOCK_50, reset)
+    begin
+        if reset = '1' then
+            lcd_board <= (others => '0');
+            lcd_cursor <= (others => '0');
+            lcd_state <= (others => '0');
+        elsif rising_edge(CLOCK_50) then
+            if io_we = '1' then
+                case io_addr is
+                    when x"00000104" => lcd_board <= io_wdata(17 downto 0);
+                    when x"00000108" => lcd_cursor <= io_wdata(3 downto 0);
+                    when x"0000010C" => lcd_state <= io_wdata(2 downto 0);
+                    when others => null;
+                end case;
+            end if;
+        end if;
+    end process;
+
+    lcd : entity work.lt24_game_display
+        port map (
+            clk => CLOCK_50, rst => reset,
+            board => lcd_board, cursor => lcd_cursor, game_state => lcd_state,
+            lcd_data => lcd_data, lcd_wr_n => lcd_wr_n, lcd_rd_n => lcd_rd_n,
+            lcd_cs_n => lcd_cs_n, lcd_rs => lcd_rs,
+            lcd_reset_n => lcd_reset_n, lcd_on => lcd_on, ready => lcd_ready
+        );
+    -- GPIO_0: LT24 encaixado no conector GPIO_0 da DE0-CV.
+    -- Pinagem fisica 2x20: pino 1=GPIO_0[0], 2=[1], ...
+    process(all)
+        variable p : std_logic_vector(35 downto 0);
+    begin
+        p := (others => 'Z');
+        p(3) := '0';  -- ADC_DIN sem uso (touch desabilitado)
+        p(4) := '0';  -- ADC_DCLK sem uso
+        p(5) := lcd_data(3);
+        p(6) := lcd_data(2);
+        p(7) := lcd_data(1);
+        p(8) := lcd_data(0);
+        p(10) := lcd_rd_n;
+        p(11) := lcd_wr_n;
+        p(12) := lcd_rs;
+        for i in 4 to 15 loop
+            p(i+9) := lcd_data(i);
+        end loop;
+        p(25) := lcd_cs_n;
+        p(33) := lcd_reset_n;
+        p(34) := '1'; -- ADC_CS_N: touch desabilitado
+        p(35) := lcd_on;
+        GPIO_0 <= p;
+    end process;
+
+    -- Banco 0: autoteste acumulativo (1=PASS, 2=FAIL).
+    -- Bancos 1..7: resultado CALCULADO pelo MIPS gravado em RAM[0xFC].
+    -- Falha nos demos escreve 0x00FFFFFF (display FFFFFF).
+    LEDR(9) <= lcd_ready when game_selected = '1' else
+                '1' when (SW(4 downto 1) = "0000" and signature = x"00000001") or
+                          (SW(4 downto 1) /= "0000" and signature /= x"00000000" and
+                           signature /= x"00FFFFFF") else '0';
+    LEDR(8) <= '1' when game_selected = '1' and unsigned(lcd_state) >= 3 else
+                '1' when (SW(4 downto 1) = "0000" and signature = x"00000002") or
+                          (SW(4 downto 1) /= "0000" and signature = x"00FFFFFF") else '0';
+    LEDR(7) <= '0' when game_selected = '1' else
+                '1' when signature = x"00000000" else '0';
     LEDR(6 downto 0) <= pc(8 downto 2);
 
-    -- Os HEX exibem o indice da instrucao (PC / 4), em hexadecimal.
-    word_pc <= pc(25 downto 2);
-    HEX0 <= hex7(word_pc(3 downto 0));
-    HEX1 <= hex7(word_pc(7 downto 4));
-    HEX2 <= hex7(word_pc(11 downto 8));
-    HEX3 <= hex7(word_pc(15 downto 12));
-    HEX4 <= hex7(word_pc(19 downto 16));
-    HEX5 <= hex7(word_pc(23 downto 20));
+    -- Banco 0 exibe o PC (word address). Bancos 1..7 exibem o
+    -- resultado em HEXADECIMAL, nao em BCD decimal.
+    show_value <= (23 downto 8 => '0') & lcd_state & '0' & lcd_cursor
+                  when game_selected = '1' else
+                  pc(25 downto 2) when SW(4 downto 1) = "0000" else
+                  signature(23 downto 0);
+    HEX0 <= hex7(show_value(3 downto 0));
+    HEX1 <= hex7(show_value(7 downto 4));
+    HEX2 <= hex7(show_value(11 downto 8));
+    HEX3 <= hex7(show_value(15 downto 12));
+    HEX4 <= hex7(show_value(19 downto 16));
+    HEX5 <= hex7(show_value(23 downto 20));
 end architecture;

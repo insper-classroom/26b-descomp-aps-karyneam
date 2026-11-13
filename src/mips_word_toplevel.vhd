@@ -10,10 +10,15 @@ entity mips_word_toplevel is
         clk               : in  std_logic;
         reset             : in  std_logic;
         enable            : in  std_logic;
+        rom_bank          : in  std_logic_vector(3 downto 0) := "0000"; -- SW(4:1)
         debug_pc          : out std_logic_vector(31 downto 0);
         debug_instruction : out std_logic_vector(31 downto 0);
         debug_alu_result  : out std_logic_vector(31 downto 0);
-        debug_signature   : out std_logic_vector(31 downto 0)
+        debug_signature   : out std_logic_vector(31 downto 0);
+        io_read_data      : in  std_logic_vector(31 downto 0) := (others => '0');
+        io_addr           : out std_logic_vector(31 downto 0);
+        io_write_data     : out std_logic_vector(31 downto 0);
+        io_write_strobe   : out std_logic
     );
 end entity;
 
@@ -37,19 +42,25 @@ architecture rtl of mips_word_toplevel is
     signal hi_next, lo_next : std_logic_vector(31 downto 0);
     signal hi_write, lo_write : std_logic;
 begin
+    io_addr <= alu_result;
+    io_write_data <= reg_b;
+    io_write_strobe <= '1' when enable = '1' and byte_write = "1111" and
+                                alu_result(31 downto 8) = x"000001" else '0';
     debug_pc          <= pc;
     debug_instruction <= instruction;
     debug_alu_result  <= alu_result;
     debug_signature   <= signature;
 
     rom_inst : entity work.mips_rom
+        generic map (addrWidth => 13)
         port map (
-            addr => pc(11 downto 2),
+            addr => rom_bank & pc(10 downto 2),
             data => instruction
         );
 
     reg_write_step <= reg_write and enable;
-    byte_write_step <= byte_write when enable = '1' else "0000";
+    byte_write_step <= byte_write when enable = '1' and
+                                  alu_result(31 downto 8) = x"000000" else "0000";
 
     regs_inst : entity work.reg_file
         port map (
@@ -253,7 +264,11 @@ begin
             when "100011" => -- lw: palavra completa (C)
                 v_alu := std_logic_vector(unsigned(reg_a) + unsigned(imm_signed));
                 v_regwrite := '1';
-                v_write := ram_data;
+                if v_alu(31 downto 8) = x"000001" then
+                    v_write := io_read_data;
+                else
+                    v_write := ram_data;
+                end if;
 
             when "100000" | "100100" => -- lb / lbu (C+)
                 v_alu := std_logic_vector(unsigned(reg_a) + unsigned(imm_signed));
