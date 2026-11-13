@@ -6,6 +6,9 @@ MODULE ?= test_ula
 # O core usa process(all), recurso de VHDL-2008.
 ifeq ($(SIM),ghdl)
     EXTRA_ARGS += --std=08
+    # ROM de 8192 palavras: objeto de 256 KB excede limite padrao do GHDL (128 KB).
+    # Esta opcao afeta apenas o simulador, sem alterar hardware nem sintese.
+    SIM_ARGS += --max-stack-alloc=1024
 endif
 
 ifeq ($(TOPLEVEL),mips_word_toplevel)
