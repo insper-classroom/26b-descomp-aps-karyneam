@@ -19,6 +19,10 @@ async def run_case(dut, mnemonic):
     words = [int(line, 16) for line in ROM.read_text(encoding='utf-8').split()]
     ref = MipsReference(program=words)
     visited = Counter()
+    # A CPU agora tem entradas MMIO e de selecao de banco. Nos testes
+    # individuais, sempre utilizar banco 0 da ROM temporaria.
+    dut.rom_bank.value = 0
+    dut.io_read_data.value = 0
     dut.enable.value = 0
     dut.reset.value = 1
     cocotb.start_soon(Clock(dut.clk, 10, units='ns').start())

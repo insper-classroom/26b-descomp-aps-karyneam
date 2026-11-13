@@ -32,6 +32,9 @@ def decode(word):
 
 @cocotb.test()
 async def programa_c_cplus_b_bplus(dut):
+    # O banco 0 e o autoteste B+; os demais bancos sao demos/LT24.
+    dut.rom_bank.value = 0
+    dut.io_read_data.value = 0
     dut.reset.value = 1
     dut.enable.value = 0
     cocotb.start_soon(Clock(dut.clk, 10, units='ns').start())

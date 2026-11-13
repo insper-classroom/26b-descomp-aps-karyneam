@@ -24,6 +24,8 @@ MAX_STEPS = 850
 async def run_reference_test(dut, focus):
     ref = MipsReference()
     counts = Counter()
+    dut.rom_bank.value = 0
+    dut.io_read_data.value = 0
     dut.enable.value = 0
     dut.reset.value = 1
     cocotb.start_soon(Clock(dut.clk, 10, units='ns').start())
