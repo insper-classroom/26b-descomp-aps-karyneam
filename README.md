@@ -1,3 +1,13 @@
+RTL viewer:
+
+<img width="670" height="562" alt="image" src="https://github.com/user-attachments/assets/cd4b1330-a727-48cd-be73-f4531a27a5e1" />
+
+<img width="593" height="343" alt="image" src="https://github.com/user-attachments/assets/6f2522dd-1603-477d-9d43-c0a40d0ad8b2" />
+<img width="1052" height="575" alt="image" src="https://github.com/user-attachments/assets/f02b9bb2-ad25-47ce-b122-184adf3e7e2a" />
+<img width="923" height="426" alt="image" src="https://github.com/user-attachments/assets/20609076-6099-491c-922d-21d06ad77a4d" />
+<img width="1010" height="525" alt="image" src="https://github.com/user-attachments/assets/9956186b-1d5b-4053-802b-c357f885c238" />
+
+
 Frequência máxima de operação: 
 <img width="289" height="32" alt="image" src="https://github.com/user-attachments/assets/62fdfe10-564f-4ef6-bd81-bfedc44073ea" />
 
