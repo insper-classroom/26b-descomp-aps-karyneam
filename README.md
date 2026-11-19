@@ -9,11 +9,13 @@
 
 
 **Frequência máxima de operação:** 
+
 <img width="289" height="32" alt="image" src="https://github.com/user-attachments/assets/62fdfe10-564f-4ef6-bd81-bfedc44073ea" />
 
 
 
 **Pior caminho:**
+
 <img width="927" height="138" alt="image" src="https://github.com/user-attachments/assets/63000c84-5d4b-4f4e-9d2c-b13adf9fb6d1" />
 
 **Pior caminho detalhado:**
@@ -28,6 +30,7 @@ Esse caminho limita a frequência máxima de operação porque o processador uti
 
 
 **Quantidade e percentual de LUTs utilizadas:**
+
 <img width="250" height="12" alt="image" src="https://github.com/user-attachments/assets/a36d854a-c5eb-4a3b-8df7-3a147d531e8e" />
 
 
